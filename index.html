@@ -81,27 +81,32 @@
     try {
       const kasa = await (await fetch('kasa.json', { cache: 'no-cache' })).json();
       const kullanici = $('kullanici').value.trim().toLocaleLowerCase('tr-TR');
-      let bulunan = null;
-      for (const g of kasa.anahtarlar || []) {
-        bulunan = await dene(g, kullanici, $('parola').value, kasa.tekrar);
-        if (bulunan) break;
-      }
+      // Tüm anahtarlar aynı anda denenir (telefonda daha hızlı)
+      const denemeler = (kasa.anahtarlar || []).map((g) => dene(g, kullanici, $('parola').value, kasa.tekrar));
+      const bulunan = await new Promise((tamam) => {
+        let kalan = denemeler.length;
+        if (!kalan) tamam(null);
+        const bitti = () => { kalan -= 1; if (!kalan) tamam(null); };
+        denemeler.forEach((d) => d.then((r) => (r ? tamam(r) : bitti()), bitti));
+      });
       if (!bulunan) {
         durum('Kullanıcı adı veya şifre hatalı.', true);
         $('dugme').disabled = false;
         $('parola').select();
         return;
       }
-      await kayit;
-      const reg = await navigator.serviceWorker.ready;
+      durum('Anahtar hazırlanıyor…');
+      const sure = (ms, mesaj) => new Promise((_, red) => setTimeout(() => red(new Error(mesaj)), ms));
+      await Promise.race([kayit, sure(15000, 'güvenlik bileşeni (service worker) yüklenemedi. Sayfayı yenileyip tekrar deneyin; uygulama içi tarayıcı (WhatsApp, Instagram vb.) yerine Chrome veya Safari kullanın.')]);
+      const reg = await Promise.race([navigator.serviceWorker.ready, sure(15000, 'güvenlik bileşeni etkinleşmedi. Sayfayı yenileyip tekrar deneyin.')]);
       const kanal = new MessageChannel();
       const yanit = new Promise((ok) => { kanal.port1.onmessage = (m) => ok(m.data); });
       const ham = b64(bulunan.ham);
       reg.active.postMessage({ tur: 'giris', ham: ham.buffer, uid: bulunan.u, entryId: bulunan.id, username: bulunan.n, kalici: $('kalici').checked }, [kanal.port2]);
-      const y = await yanit;
+      const y = await Promise.race([yanit, sure(15000, 'anahtar bu tarayıcıda saklanamadı (gizli/özel pencere olabilir). Normal pencerede deneyin.')]);
       if (!y || !y.ok) throw new Error((y && y.hata) || 'anahtar kaydedilemedi');
       durum('Açılıyor…');
-      location.reload();
+      location.replace(location.pathname.replace(/index\.html$/, ''));
     } catch (h) {
       durum(`Giriş tamamlanamadı: ${h.message || h}`, true);
       $('dugme').disabled = false;
