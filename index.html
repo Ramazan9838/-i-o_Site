@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Giriş · Çikolata Satış Takip</title>
+<style>
+  :root { --zemin1: #2f1b12; --zemin2: #160e0a; --kart: #fff8f0; --yazi: #2b1a12; --soluk: #8f6f5d; --vurgu: #6b3e26; --hata: #bb3344; --cizgi: rgba(78,44,29,.25); }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 16px; color: var(--yazi); overflow: hidden;
+    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", "Noto Sans", sans-serif;
+    background: radial-gradient(circle at 20% 15%, #6b3e26 0%, transparent 45%), radial-gradient(circle at 85% 80%, #8b5a3c 0%, transparent 40%), linear-gradient(160deg, var(--zemin1), var(--zemin2)); }
+  .damla { position: fixed; top: 0; left: 0; width: 100%; height: 80px; }
+  .tane { position: fixed; width: 30px; height: 19px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #a0673f, #5a321f 70%); opacity: .5; animation: uc 14s infinite ease-in-out; }
+  @keyframes uc { 50% { transform: translateY(-36px) rotate(160deg); } }
+  @media (prefers-reduced-motion: reduce) { .tane { animation: none; } }
+  form { position: relative; z-index: 2; width: 100%; max-width: 380px; background: var(--kart); border-radius: 22px; padding: 30px 26px 26px; box-shadow: 0 30px 80px -20px rgba(0,0,0,.7); }
+  .logo { display: block; width: 64px; height: 64px; margin: -62px auto 8px; }
+  h1 { margin: 0; font: 700 1.5rem Georgia, "Times New Roman", serif; text-align: center; }
+  p { margin: 4px 0 20px; color: var(--soluk); font-size: .9rem; text-align: center; }
+  label { display: block; font-size: .85rem; font-weight: 600; margin: 12px 0 6px; color: #5f4334; }
+  input[type=text], input[type=password] { width: 100%; padding: 10px 12px; font: inherit; border: 1px solid var(--cizgi); border-radius: 10px; background: #fff; color: var(--yazi); }
+  input:focus { outline: none; border-color: #c8894d; box-shadow: 0 0 0 3px rgba(200,137,77,.25); }
+  .hatirla { display: flex; gap: 8px; align-items: center; margin: 16px 0 18px; font-size: .88rem; font-weight: 400; color: var(--soluk); }
+  button { width: 100%; padding: 12px; font: inherit; font-weight: 700; border: 0; border-radius: 11px; color: #fff8f0; cursor: pointer; background: linear-gradient(180deg, #7d4b30, var(--vurgu)); }
+  button:disabled { opacity: .6; cursor: progress; }
+  #durum { min-height: 1.5em; margin: 14px 0 0; font-size: .9rem; text-align: center; }
+  #durum.hata { color: var(--hata); }
+  .kilit { margin-top: 14px; font-size: .78rem; color: var(--soluk); text-align: center; }
+</style>
+</head>
+<body>
+<svg class="damla" viewBox="0 0 400 80" preserveAspectRatio="none" aria-hidden="true"><path fill="#4e2c1d" d="M0 0h400v26c-10 0-12 28-22 28s-8-20-18-20-9 42-20 42-9-34-20-34-10 16-20 16-9-26-19-26-10 36-21 36-9-28-19-28-10 12-20 12-11-24-21-24-9 48-20 48-10-40-20-40-9 18-19 18-10-28-20-28-11 32-21 32-9-22-19-22-10 9-20 9S10 26 0 26z"/></svg>
+<form id="giris" autocomplete="on">
+  <svg class="logo" viewBox="0 0 64 64" aria-hidden="true"><rect x="10" y="6" width="44" height="52" rx="8" fill="#6b3e26"/><g fill="#8b5a3c"><rect x="15" y="11" width="15" height="13" rx="3"/><rect x="34" y="11" width="15" height="13" rx="3"/><rect x="15" y="27" width="15" height="13" rx="3"/><rect x="34" y="27" width="15" height="13" rx="3"/></g><path d="M6 30h52v24a6 6 0 0 1-6 6H12a6 6 0 0 1-6-6z" fill="#d9a066"/></svg>
+  <h1>Çikolata Satış Takip</h1>
+  <p>Bu site şifrelidir. İçerik yalnızca tarayıcınızda çözülür.</p>
+  <label for="kullanici">Kullanıcı adı</label>
+  <input id="kullanici" type="text" autocomplete="username" autocapitalize="none" required autofocus>
+  <label for="parola">Şifre</label>
+  <input id="parola" type="password" autocomplete="current-password" required>
+  <label class="hatirla"><input id="kalici" type="checkbox"> Bu cihazda 30 gün açık kalsın (aksi hâlde 12 saat)</label>
+  <button id="dugme" type="submit">Giriş</button>
+  <div id="durum" role="status"></div>
+  <div class="kilit">🔒 AES-256 · kullanıcıya özel anahtar</div>
+</form>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const durum = (s, hata) => { $('durum').textContent = s; $('durum').className = hata ? 'hata' : ''; };
+  const b64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+  const enc = new TextEncoder();
+  for (let i = 0; i < 12; i += 1) {
+    const t = document.createElement('div');
+    t.className = 'tane';
+    t.style.left = `${(i * 37) % 100}%`; t.style.top = `${(i * 53) % 100}%`; t.style.animationDelay = `${-i * 1.3}s`;
+    document.body.appendChild(t);
+  }
+  if (!('serviceWorker' in navigator) || !window.crypto || !crypto.subtle) {
+    durum('Bu tarayıcı (veya gizli pencere) gerekli özellikleri desteklemiyor. Güncel Chrome, Edge, Safari ya da normal pencerede Firefox kullanın.', true);
+    $('dugme').disabled = true;
+    return;
+  }
+  const kayit = navigator.serviceWorker.register('sw.js');
+
+  async function dene(giris, kullanici, parola, tekrar) {
+    const temel = await crypto.subtle.importKey('raw', enc.encode(`${kullanici}\u0000${parola}`), 'PBKDF2', false, ['deriveKey']);
+    const k = await crypto.subtle.deriveKey({ name: 'PBKDF2', hash: 'SHA-256', salt: b64(giris.tuz), iterations: tekrar }, temel, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+    const b = b64(giris.sarili);
+    try {
+      const duz = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b.subarray(0, 12), additionalData: enc.encode('anahtar') }, k, b.subarray(12));
+      return { ...JSON.parse(new TextDecoder().decode(duz)), id: giris.id };
+    } catch { return null; }
+  }
+
+  $('giris').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    $('dugme').disabled = true;
+    durum('Doğrulanıyor… (birkaç saniye sürebilir)');
+    try {
+      const kasa = await (await fetch('kasa.json', { cache: 'no-cache' })).json();
+      const kullanici = $('kullanici').value.trim().toLocaleLowerCase('tr-TR');
+      let bulunan = null;
+      for (const g of kasa.anahtarlar || []) {
+        bulunan = await dene(g, kullanici, $('parola').value, kasa.tekrar);
+        if (bulunan) break;
+      }
+      if (!bulunan) {
+        durum('Kullanıcı adı veya şifre hatalı.', true);
+        $('dugme').disabled = false;
+        $('parola').select();
+        return;
+      }
+      await kayit;
+      const reg = await navigator.serviceWorker.ready;
+      const kanal = new MessageChannel();
+      const yanit = new Promise((ok) => { kanal.port1.onmessage = (m) => ok(m.data); });
+      const ham = b64(bulunan.ham);
+      reg.active.postMessage({ tur: 'giris', ham: ham.buffer, uid: bulunan.u, entryId: bulunan.id, username: bulunan.n, kalici: $('kalici').checked }, [kanal.port2]);
+      const y = await yanit;
+      if (!y || !y.ok) throw new Error((y && y.hata) || 'anahtar kaydedilemedi');
+      durum('Açılıyor…');
+      location.reload();
+    } catch (h) {
+      durum(`Giriş tamamlanamadı: ${h.message || h}`, true);
+      $('dugme').disabled = false;
+    }
+  });
+})();
+</script>
+</body>
+</html>
